@@ -1,0 +1,24 @@
+# First stage: complete build environment
+FROM maven:3.6.3-jdk-11 AS builder
+
+ARG PROFILE
+# add pom.xml and source code
+ADD ./pom.xml pom.xml
+ADD ./src src/
+
+# package jar
+RUN mvn  package -DskipTests -Dquarkus.profile=${PROFILE}
+
+# Second stage: minimal runtime environment
+From fabric8/java-alpine-openjdk11-jre
+
+# copy jar from the first stage
+COPY --from=builder target/ /deployments/
+ENV AB_JOLOKIA_OFF=""
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+RUN ls -la /deployments/
+RUN apk upgrade --no-cache && \
+    apk add --no-cache libstdc++ 
+    # apk add --no-cache postgresql-client bash openssl libgcc libstdc++ ncurses-libs
+EXPOSE 31602
+ENV JAVA_APP_JAR="/deployments/quarkus-app/quarkus-run.jar"
